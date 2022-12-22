@@ -11,10 +11,13 @@
 typedef unsigned char  BYTE;
 typedef unsigned short WORD;
 typedef unsigned long  DWORD;
-#define PUBLIC_KEY_SIZE			404
 #define PUBLIC_KEY_OFFSET		0x7f8020L
+#define PUBLIC_KEY_SIZE			404
 #define HEADER_BINARY_SIZE		0x1800
+#define HEADER_BINARY_SIZE_NEW	0x10000
+// #define HASH_MANIFEST_EMPTY_VALUE	0
 
+BYTE bufferHB[HEADER_BINARY_SIZE_NEW];
 
 void ShowUsage(void)
 {
@@ -29,7 +32,8 @@ main(int argc, char* argv[])
 	int nDoubleWordChecksum = 0;
 	int i;
 	BYTE bufferPK[PUBLIC_KEY_SIZE];
-	BYTE bufferHB[HEADER_BINARY_SIZE];
+	//BYTE bufferHB[HEADER_BINARY_SIZE_NEW];
+	//BYTE bufferEmpty[HEADER_BINARY_SIZE_NEW - HEADER_BINARY_SIZE];
 	DWORD Checksum;
 	DWORD lROMSize = 0;
 	char option_char;
@@ -75,7 +79,7 @@ main(int argc, char* argv[])
 	//
 	_lseek(fhPublicKey, 0L, SEEK_SET);           /* Set to position 0 */
 	Checksum = 0;
-	if (_read(fhPublicKey, bufferPK, PUBLIC_KEY_SIZE))
+	if (_read(fhPublicKey, bufferPK, sizeof(bufferPK)))
 	{
 		//
 		// Accumulate _read buffer
@@ -103,7 +107,14 @@ main(int argc, char* argv[])
 			exit(-3);
 		}
 		//
-		// Checksum by byte thru the file
+		// clear buffer tails
+		//
+		//for (i = HEADER_BINARY_SIZE; i < HEADER_BINARY_SIZE_NEW; i++)
+		//{
+		//	bufferHB[i] = 0;
+		//}
+		//
+		// read header file
 		//
 		_lseek(fhHeaderBinary, 0L, SEEK_SET);           /* Set to position 0 */
 		if (!_read(fhHeaderBinary, bufferHB, HEADER_BINARY_SIZE))
@@ -125,8 +136,8 @@ main(int argc, char* argv[])
 	// Override header with Header File input
 	//
 	if (argc > 3) {
-		_lseek(fhUBIOS, 0, SEEK_SET);           /* Seek to PUBLIC_KEY_OFFSET */
-		if (_write(fhUBIOS, bufferHB, HEADER_BINARY_SIZE) == -1)
+		_lseek(fhUBIOS, 0, SEEK_SET);
+		if (_write(fhUBIOS, bufferHB, sizeof(bufferHB)) == -1)
 		{
 			printf("%s Header wrtie error!\n", argv[1]);
 			_close(fhUBIOS);
@@ -137,7 +148,7 @@ main(int argc, char* argv[])
 	// Checksum by byte thru the file
 	//
 	_lseek(fhUBIOS, PUBLIC_KEY_OFFSET, SEEK_SET);           /* Seek to PUBLIC_KEY_OFFSET */
-	if (_write(fhUBIOS, bufferPK, PUBLIC_KEY_SIZE) == -1)
+	if (_write(fhUBIOS, bufferPK, sizeof(bufferPK)) == -1)
 	{
 		printf("%s Public Key wrtie error!\n", argv[1]);
 		_close(fhUBIOS);
@@ -150,6 +161,7 @@ main(int argc, char* argv[])
 		exit(-1);
 	}
 
+	_close(fhHeaderBinary);
 	_close(fhPublicKey);
 	_close(fhUBIOS);
 	exit(0);
