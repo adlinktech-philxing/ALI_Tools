@@ -13,11 +13,7 @@ typedef unsigned short WORD;
 typedef unsigned long  DWORD;
 #define PUBLIC_KEY_OFFSET		0x7f8020L
 #define PUBLIC_KEY_SIZE			404
-#define HEADER_BINARY_SIZE		0x1800
-#define HEADER_BINARY_SIZE_NEW	0x10000
-// #define HASH_MANIFEST_EMPTY_VALUE	0
-
-BYTE bufferHB[HEADER_BINARY_SIZE_NEW];
+#define HEADER_BINARY_SIZE		0x10000
 
 void ShowUsage(void)
 {
@@ -32,8 +28,7 @@ main(int argc, char* argv[])
 	int nDoubleWordChecksum = 0;
 	int i;
 	BYTE bufferPK[PUBLIC_KEY_SIZE];
-	//BYTE bufferHB[HEADER_BINARY_SIZE_NEW];
-	//BYTE bufferEmpty[HEADER_BINARY_SIZE_NEW - HEADER_BINARY_SIZE];
+	BYTE bufferHB[HEADER_BINARY_SIZE];
 	DWORD Checksum;
 	DWORD lROMSize = 0;
 	char option_char;
@@ -106,13 +101,6 @@ main(int argc, char* argv[])
 			printf("%s open error!\n", argv[3]);
 			exit(-3);
 		}
-		//
-		// clear buffer tails
-		//
-		//for (i = HEADER_BINARY_SIZE; i < HEADER_BINARY_SIZE_NEW; i++)
-		//{
-		//	bufferHB[i] = 0;
-		//}
 		//
 		// read header file
 		//
