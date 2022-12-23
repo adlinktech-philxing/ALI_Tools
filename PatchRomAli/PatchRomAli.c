@@ -1,10 +1,6 @@
 ﻿#include    <stdlib.h>
 #include    <stdio.h>
 #include    <io.h>
-#include    <SYS\Stat.h>
-#include    <share.h>
-#include    <conio.h>
-#include    <fcntl.h>
 //
 //  This utility is designed to display checksum in byte
 //
@@ -15,6 +11,9 @@ typedef unsigned long  DWORD;
 #define PUBLIC_KEY_SIZE			404
 #define HEADER_BINARY_SIZE		0x10000
 
+BYTE bufferPK[PUBLIC_KEY_SIZE];
+BYTE bufferHB[HEADER_BINARY_SIZE];
+
 void ShowUsage(void)
 {
 	printf("Tool to insert public key to a UBIOS.\n\n"
@@ -24,16 +23,14 @@ void ShowUsage(void)
 
 main(int argc, char* argv[])
 {
-	int fhUBIOS, fhPublicKey, fhHeaderBinary;
+	FILE *fpUBIOS, *fpPublicKey, *fpHeaderBinary;
 	int nDoubleWordChecksum = 0;
 	int i;
-	BYTE bufferPK[PUBLIC_KEY_SIZE];
-	BYTE bufferHB[HEADER_BINARY_SIZE];
 	DWORD Checksum;
 	DWORD lROMSize = 0;
 	char option_char;
 
-	if (argc < 3) {
+	if (argc < 4) {
 		ShowUsage();
 		exit(-1);
 	}
@@ -64,7 +61,7 @@ main(int argc, char* argv[])
 	//
 	// get public key and checksum to a word
 	//
-	if (_sopen_s(&fhPublicKey, argv[2], _O_BINARY | _O_RDONLY, _SH_DENYWR, _S_IREAD) != 0)
+	if ((fopen_s(&fpPublicKey, argv[2], "rb"))!=0)
 	{
 		printf("%s open error!\n", argv[2]);
 		exit(-2);
@@ -72,12 +69,12 @@ main(int argc, char* argv[])
 	//
 	// Checksum by byte thru the file
 	//
-	_lseek(fhPublicKey, 0L, SEEK_SET);           /* Set to position 0 */
+	fseek(fpPublicKey, 0L, SEEK_SET);           /* Set to position 0 */
 	Checksum = 0;
-	if (_read(fhPublicKey, bufferPK, sizeof(bufferPK)))
+	if (fread_s(bufferPK, sizeof(bufferPK), 1, sizeof(bufferPK), fpPublicKey))
 	{
 		//
-		// Accumulate _read buffer
+		// byte checksum public key
 		//    
 		for (i = 0; i < PUBLIC_KEY_SIZE; i += sizeof(BYTE))
 		{
@@ -95,26 +92,24 @@ main(int argc, char* argv[])
 	//
 	// read header binary file
 	//
-	if (argc > 3) {
-		if (_sopen_s(&fhHeaderBinary, argv[3], _O_BINARY | _O_RDONLY, _SH_DENYWR, _S_IREAD) != 0)
-		{
-			printf("%s open error!\n", argv[3]);
-			exit(-3);
-		}
-		//
-		// read header file
-		//
-		_lseek(fhHeaderBinary, 0L, SEEK_SET);           /* Set to position 0 */
-		if (!_read(fhHeaderBinary, bufferHB, HEADER_BINARY_SIZE))
-		{
-			printf("%s read error!\n", argv[3]);
-			exit(-3);
-		}
+	if (fopen_s(&fpHeaderBinary, argv[3], "rb") != 0)
+	{
+		printf("%s open error!\n", argv[3]);
+		exit(-3);
+	}
+	//
+	// read header file
+	//
+	fseek(fpHeaderBinary, 0L, SEEK_SET);           /* Set to position 0 */
+	if (!fread_s(bufferHB, HEADER_BINARY_SIZE, 1, HEADER_BINARY_SIZE, fpHeaderBinary))
+	{
+		printf("%s read error!\n", argv[3]);
+		exit(-3);
 	}
 	//
 	// open UBIOS
 	//
-	if (_sopen_s(&fhUBIOS, argv[1], _O_BINARY | _O_RDWR, _SH_DENYNO, _S_IREAD | _S_IWRITE) != 0)
+	if (fopen_s(&fpUBIOS, argv[1], "wb") != 0)
 
 	{
 		printf("%s open error!\n", argv[1]);
@@ -123,34 +118,32 @@ main(int argc, char* argv[])
 	//
 	// Override header with Header File input
 	//
-	if (argc > 3) {
-		_lseek(fhUBIOS, 0, SEEK_SET);
-		if (_write(fhUBIOS, bufferHB, sizeof(bufferHB)) == -1)
-		{
-			printf("%s Header wrtie error!\n", argv[1]);
-			_close(fhUBIOS);
-			exit(-1);
-		}
+	fseek(fpUBIOS, 0, SEEK_SET);
+	if (fwrite(bufferHB, 1, sizeof(bufferHB), fpUBIOS) == -1)
+	{
+		printf("%s Header wrtie error!\n", argv[1]);
+		fclose(fpUBIOS);
+		exit(-1);
 	}
 	//
 	// Checksum by byte thru the file
 	//
-	_lseek(fhUBIOS, PUBLIC_KEY_OFFSET, SEEK_SET);           /* Seek to PUBLIC_KEY_OFFSET */
-	if (_write(fhUBIOS, bufferPK, sizeof(bufferPK)) == -1)
+	fseek(fpUBIOS, PUBLIC_KEY_OFFSET, SEEK_SET);           /* Seek to PUBLIC_KEY_OFFSET */
+	if (fwrite(bufferPK, 1, sizeof(bufferPK), fpUBIOS) == -1)
 	{
 		printf("%s Public Key wrtie error!\n", argv[1]);
-		_close(fhUBIOS);
+		fclose(fpUBIOS);
 		exit(-1);
 	}
-	if (_write(fhUBIOS, &Checksum, sizeof(Checksum)) == -1)
+	if (fwrite(&Checksum, 1, sizeof(Checksum), fpUBIOS) == -1)
 	{
 		printf("%s Checksum wrtie error!\n", argv[1]);
-		_close(fhUBIOS);
+		fclose(fpUBIOS);
 		exit(-1);
 	}
 
-	_close(fhHeaderBinary);
-	_close(fhPublicKey);
-	_close(fhUBIOS);
+	fclose(fpHeaderBinary);
+	fclose(fpPublicKey);
+	fclose(fpUBIOS);
 	exit(0);
 }
